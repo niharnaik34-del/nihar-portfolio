@@ -42,6 +42,23 @@ const fallbackGrid   = document.querySelector('.fallback-grid');
 const progressFill   = document.querySelector('.progress-fill');
 
 /* ---------------------------------------------------------
+   3D Modeling cards — tap to toggle wireframe on touch
+   devices (hover already handles this on desktop via CSS)
+--------------------------------------------------------- */
+document.querySelectorAll('.model-media').forEach((el) => {
+  el.setAttribute('tabindex', '0');
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', 'Toggle wireframe view');
+  el.addEventListener('click', () => el.classList.toggle('is-active'));
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      el.classList.toggle('is-active');
+    }
+  });
+});
+
+/* ---------------------------------------------------------
    Capability check — fall back to the static grid when
    WebGL is unavailable or the user prefers reduced motion
 --------------------------------------------------------- */
