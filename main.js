@@ -22,7 +22,6 @@ const posters = [
     desc: 'A pixel-type poster built like a scattered thought, set in raw bitmap type.' },
 ];
 
-const ACCENTS = [0xE23A2A, 0x1F2AE0, 0xEFB92A, 0x9CC93A];
 const SPACING = 7;
 const posterZ = (i) => -10 - i * SPACING;
 const START_Z = 14;
@@ -137,14 +136,6 @@ function runExperience(){
       const baseRotY = -side * 0.32;
       const z = posterZ(i);
 
-      const backing = new THREE.Mesh(
-        new THREE.PlaneGeometry(width * 1.14, height * 1.1),
-        new THREE.MeshBasicMaterial({ color: ACCENTS[i % ACCENTS.length] })
-      );
-      backing.position.set(baseX, baseY, z - 0.06);
-      backing.rotation.y = baseRotY;
-      scene.add(backing);
-
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(width, height),
         new THREE.MeshBasicMaterial({ map: tex })
@@ -153,7 +144,7 @@ function runExperience(){
       mesh.rotation.y = baseRotY;
       scene.add(mesh);
 
-      meshes.push({ mesh, backing, baseX, baseY, baseRotY, z, index: i });
+      meshes.push({ mesh, baseX, baseY, baseRotY, z, index: i });
     });
   });
 
@@ -216,16 +207,12 @@ function runExperience(){
       m.mesh.position.y = m.baseY + bob;
       m.mesh.rotation.y = m.baseRotY + wobbleY;
       m.mesh.rotation.z = wobbleZ;
-      m.backing.position.y = m.baseY + bob;
-      m.backing.rotation.y = m.baseRotY + wobbleY;
-      m.backing.rotation.z = wobbleZ;
 
       const dist = Math.abs(camera.position.z - m.z);
       const isActive = m.index === activeIndex && dist < SPACING * 0.62;
       const targetScale = isActive ? 1.08 : 1.0;
       const s = THREE.MathUtils.lerp(m.mesh.scale.x || 1, targetScale, 0.08);
       m.mesh.scale.setScalar(s);
-      m.backing.scale.setScalar(s);
     });
 
     captionEls.forEach((el, i) => {
