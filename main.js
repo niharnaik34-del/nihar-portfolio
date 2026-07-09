@@ -20,18 +20,6 @@ const posters = [
     desc: 'Type as texture — oversized letterforms overwhelm a lone figure at the shoreline.' },
   { file: 'what-is-real.jpg',     title: 'What Is Real',         tag: 'Typography / Experimental',
     desc: 'A pixel-type poster built like a scattered thought, set in raw bitmap type.' },
-
-  { file: 'dodge-color.jpg',      title: 'Dodge Challenger',     tag: '3D / Automotive',
-    desc: 'A photoreal 3D car build — modeled, textured, and lit from scratch.' },
-  { file: 'watch-color.jpg',      title: 'Mechanical Watch',     tag: '3D / Product',
-    desc: 'A studio product render down to the case detailing, dial texture, and an exposed movement.' },
-  { file: 'house-color.jpg',      title: 'Modern House',         tag: '3D / Architecture',
-    desc: 'An architectural night render, built out room by room with interior lighting and materials.' },
-  { file: 'city-color.jpg',       title: 'City Block',           tag: '3D / Environment',
-    desc: 'A full city block environment — modeled architecture, signage, and street furniture.' },
-
-  { video: true, title: 'Show Reel', tag: 'Video Editing',
-    desc: 'A cut of recent edit work — pacing, transitions, and sound design brought together into one reel.' },
 ];
 
 const SPACING = 7;
@@ -39,19 +27,33 @@ const posterZ = (i) => -10 - i * SPACING;
 const START_Z = 14;
 const END_Z = posterZ(posters.length - 1) - 9;
 
+/* particle shatter finale — triggers as the camera clears the last poster */
+const SHATTER_START = 0.86;
+const SHATTER_END = 0.99;
+const ACCENT_HEX = [0xE23A2A, 0x1F2AE0, 0xEFB92A, 0x9CC93A, 0xffffff];
+
+function basePose(i){
+  const side = i % 2 === 0 ? -1 : 1;
+  return {
+    x: side * 2.5 + Math.sin(i * 0.9) * 0.5,
+    y: Math.sin(i * 1.15) * 1.1,
+    rotY: -side * 0.32,
+    z: posterZ(i),
+  };
+}
+
 /* ---------------------------------------------------------
    DOM refs
 --------------------------------------------------------- */
-const workWrap    = document.querySelector('.work-wrap');
-const spacer       = document.querySelector('.experience-spacer');
-const layer        = document.querySelector('.experience-layer');
-const canvas        = document.querySelector('#gl');
-const loaderEl      = document.querySelector('.loader');
-const loaderBar     = document.querySelector('.loader-bar');
-const heroCopy       = document.querySelector('.hero-copy');
-const captionsEl     = document.querySelector('.captions');
-const fallbackGrid   = document.querySelector('.fallback-grid');
-const progressFill   = document.querySelector('.progress-fill');
+const spacer        = document.querySelector('.experience-spacer');
+const layer          = document.querySelector('.experience-layer');
+const canvas          = document.querySelector('#gl');
+const loaderEl        = document.querySelector('.loader');
+const loaderBar       = document.querySelector('.loader-bar');
+const heroCopy         = document.querySelector('.hero-copy');
+const captionsEl       = document.querySelector('.captions');
+const fallbackGrid     = document.querySelector('.fallback-grid');
+const progressFill     = document.querySelector('.progress-fill');
 
 /* ---------------------------------------------------------
    3D Modeling cards — tap to toggle wireframe on touch
@@ -150,62 +152,64 @@ function runExperience(){
   };
   const texLoader = new THREE.TextureLoader(manager);
 
-  /* --- build gallery meshes (images + the closing video screen) --- */
+  /* --- build poster meshes --- */
   const meshes = [];
+  const lastIndex = posters.length - 1;
 
   posters.forEach((p, i) => {
-    const z = posterZ(i);
-
-    if (p.video) {
-      /* closing "screen" — muted autoplay preview of the reel */
-      manager.itemStart('reel-video');
-      const video = document.createElement('video');
-      video.muted = true;
-      video.loop = true;
-      video.playsInline = true;
-      video.preload = 'auto';
-      video.src = 'video/reel.mp4';
-      video.addEventListener('loadeddata', () => manager.itemEnd('reel-video'), { once: true });
-
-      const videoTex = new THREE.VideoTexture(video);
-      videoTex.colorSpace = THREE.SRGBColorSpace;
-
-      const width = 4.6;
-      const height = width * (576 / 1024);
-
-      const mesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(width, height),
-        new THREE.MeshBasicMaterial({ map: videoTex })
-      );
-      mesh.position.set(0, 0, z);
-      scene.add(mesh);
-
-      meshes.push({ mesh, baseX: 0, baseY: 0, baseRotY: 0, z, index: i, video });
-      return;
-    }
-
     texLoader.load(`images/${p.file}`, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
 
-      const texAspect = tex.image.width / tex.image.height; // >1 = landscape
-      const width = texAspect > 1 ? 4.3 : 3.4;
-      const height = width / texAspect;
-      const side = i % 2 === 0 ? -1 : 1;
-      const baseX = side * 2.5 + Math.sin(i * 0.9) * 0.5;
-      const baseY = Math.sin(i * 1.15) * 1.1;
-      const baseRotY = -side * 0.32;
+      const pose = basePose(i);
+      const width = 3.4;
+      const height = width * (tex.image.height / tex.image.width);
 
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(width, height),
-        new THREE.MeshBasicMaterial({ map: tex })
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true })
       );
-      mesh.position.set(baseX, baseY, z);
-      mesh.rotation.y = baseRotY;
+      mesh.position.set(pose.x, pose.y, pose.z);
+      mesh.rotation.y = pose.rotY;
       scene.add(mesh);
 
-      meshes.push({ mesh, baseX, baseY, baseRotY, z, index: i });
+      meshes.push({ mesh, baseX: pose.x, baseY: pose.y, baseRotY: pose.rotY, z: pose.z, index: i, isLast: i === lastIndex });
     });
   });
+
+  /* --- particle shatter finale, centered on the last poster --- */
+  const origin = basePose(lastIndex);
+  const SHATTER_COUNT = 420;
+  const shatterOffsets = [];
+  const shatterPositions = new Float32Array(SHATTER_COUNT * 3);
+  const shatterColors = new Float32Array(SHATTER_COUNT * 3);
+
+  for (let idx = 0; idx < SHATTER_COUNT; idx++) {
+    const dir = new THREE.Vector3(
+      Math.random() - 0.5,
+      Math.random() - 0.5,
+      Math.random() - 0.5
+    ).normalize();
+    const dist = 1.5 + Math.random() * 5.5;
+    shatterOffsets.push({ dir, dist, spin: Math.random() * Math.PI * 2 });
+
+    shatterPositions[idx * 3] = origin.x;
+    shatterPositions[idx * 3 + 1] = origin.y;
+    shatterPositions[idx * 3 + 2] = origin.z;
+
+    const c = new THREE.Color(ACCENT_HEX[idx % ACCENT_HEX.length]);
+    shatterColors[idx * 3] = c.r;
+    shatterColors[idx * 3 + 1] = c.g;
+    shatterColors[idx * 3 + 2] = c.b;
+  }
+
+  const shatterGeo = new THREE.BufferGeometry();
+  shatterGeo.setAttribute('position', new THREE.BufferAttribute(shatterPositions, 3));
+  shatterGeo.setAttribute('color', new THREE.BufferAttribute(shatterColors, 3));
+  const shatterMat = new THREE.PointsMaterial({
+    size: 0.09, vertexColors: true, transparent: true, opacity: 0, depthWrite: false,
+  });
+  const shatterPoints = new THREE.Points(shatterGeo, shatterMat);
+  scene.add(shatterPoints);
 
   /* --- scroll progress (0 → 1 across the whole spacer) --- */
   let scrollProgress = 0;
@@ -258,10 +262,13 @@ function runExperience(){
       if (dist < bestDist) { bestDist = dist; activeIndex = m.index; }
     });
 
+    /* shatter amount — 0 until near the very end of the corridor */
+    const shatterAmount = THREE.MathUtils.smoothstep(scrollProgress, SHATTER_START, SHATTER_END);
+
     meshes.forEach((m) => {
-      const bob = Math.sin(t * 0.5 + m.index * 1.7) * (m.video ? 0.05 : 0.14);
-      const wobbleY = m.video ? 0 : Math.sin(t * 0.3 + m.index) * 0.05;
-      const wobbleZ = m.video ? 0 : Math.sin(t * 0.22 + m.index * 2) * 0.02;
+      const bob = Math.sin(t * 0.5 + m.index * 1.7) * 0.14;
+      const wobbleY = Math.sin(t * 0.3 + m.index) * 0.05;
+      const wobbleZ = Math.sin(t * 0.22 + m.index * 2) * 0.02;
 
       m.mesh.position.y = m.baseY + bob;
       m.mesh.rotation.y = m.baseRotY + wobbleY;
@@ -270,17 +277,30 @@ function runExperience(){
       const dist = Math.abs(camera.position.z - m.z);
       const isActive = m.index === activeIndex && dist < SPACING * 0.62;
       const targetScale = isActive ? 1.08 : 1.0;
-      const s = THREE.MathUtils.lerp(m.mesh.scale.x || 1, targetScale, 0.08);
-      m.mesh.scale.setScalar(s);
+      let s = THREE.MathUtils.lerp(m.mesh.scale.x || 1, targetScale, 0.08);
 
-      if (m.video) {
-        if (dist < SPACING * 1.2 && m.video.paused) {
-          m.video.play().catch(() => {});
-        } else if (dist >= SPACING * 1.2 && !m.video.paused) {
-          m.video.pause();
-        }
+      if (m.isLast) {
+        s *= 1 - shatterAmount * 0.4;
+        m.mesh.material.opacity = 1 - shatterAmount;
       }
+      m.mesh.scale.setScalar(s);
     });
+
+    /* animate the shatter particles outward from the last poster */
+    if (shatterAmount > 0.001) {
+      const posAttr = shatterGeo.attributes.position;
+      for (let idx = 0; idx < SHATTER_COUNT; idx++) {
+        const { dir, dist, spin } = shatterOffsets[idx];
+        const travel = shatterAmount * dist;
+        posAttr.array[idx * 3]     = origin.x + dir.x * travel;
+        posAttr.array[idx * 3 + 1] = origin.y + dir.y * travel + Math.sin(t * 2 + spin) * 0.06 * shatterAmount;
+        posAttr.array[idx * 3 + 2] = origin.z + dir.z * travel;
+      }
+      posAttr.needsUpdate = true;
+    }
+    const fadeIn = THREE.MathUtils.smoothstep(shatterAmount, 0, 0.12);
+    const fadeOut = 1 - THREE.MathUtils.smoothstep(shatterAmount, 0.7, 1);
+    shatterMat.opacity = fadeIn * fadeOut * 0.9;
 
     captionEls.forEach((el, i) => {
       const dist = Math.abs(camera.position.z - posterZ(i));

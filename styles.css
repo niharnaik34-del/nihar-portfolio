@@ -5,6 +5,7 @@
   --paper:      #ECE6D8;
   --paper-2:    #E2DAC5;
   --ink:        #15130F;
+  --surface:    #000000;
   --red:        #E23A2A;
   --blue:       #1F2AE0;
   --yellow:     #EFB92A;
@@ -171,11 +172,11 @@ img{ max-width:100%; display:block; }
 /* ===========================================================
    FALLBACK GRID (no WebGL / reduced motion)
    =========================================================== */
-.fallback-grid{ display:none; padding:8rem 6vw 6rem; background:var(--paper); color:var(--ink); }
+.fallback-grid{ display:none; padding:8rem 6vw 6rem; background:var(--surface); color:var(--paper); }
 
 .section-head{
   display:flex; align-items:baseline; justify-content:space-between;
-  border-bottom:var(--edge); padding-bottom:1.2rem; margin-bottom:3rem;
+  border-bottom:3px solid var(--paper); padding-bottom:1.2rem; margin-bottom:3rem;
 }
 .section-head h2{
   font-family:var(--font-display); font-weight:400;
@@ -213,7 +214,7 @@ img{ max-width:100%; display:block; }
    =========================================================== */
 .models{
   position:relative; z-index:2;
-  padding:6rem 6vw 2rem; background:var(--paper); color:var(--ink);
+  padding:6rem 6vw 2rem; background:var(--surface); color:var(--paper);
 }
 .models-hint{
   font-family:var(--font-mono); font-size:.8rem; text-transform:uppercase; letter-spacing:.08em;
@@ -248,7 +249,7 @@ img{ max-width:100%; display:block; }
    =========================================================== */
 .reel{
   position:relative; z-index:2;
-  padding:5rem 6vw 6rem; background:var(--paper); color:var(--ink);
+  padding:5rem 6vw 6rem; background:var(--surface); color:var(--paper);
 }
 .reel-player{
   max-width:920px; margin:0 auto; background:var(--ink);
@@ -283,7 +284,7 @@ img{ max-width:100%; display:block; }
    =========================================================== */
 .contact{
   position:relative; z-index:2;
-  padding:7rem 6vw; text-align:center; background:var(--paper); color:var(--ink);
+  padding:7rem 6vw; text-align:center; background:var(--surface); color:var(--paper);
 }
 .contact .eyebrow{ justify-content:center; display:flex; }
 .contact-email{
@@ -292,7 +293,7 @@ img{ max-width:100%; display:block; }
   word-break:break-word;
 }
 .contact-links{ margin-top:1.8rem; font-family:var(--font-mono); text-transform:uppercase; font-size:.9rem; letter-spacing:.08em; }
-.contact-links a{ border-bottom:2px solid var(--ink); padding-bottom:2px; }
+.contact-links a{ border-bottom:2px solid var(--paper); padding-bottom:2px; }
 
 /* ===========================================================
    FOOTER
@@ -301,5 +302,5 @@ img{ max-width:100%; display:block; }
   position:relative; z-index:2;
   display:flex; justify-content:space-between; padding:1.6rem 6vw 2.2rem;
   font-family:var(--font-mono); font-size:.75rem; text-transform:uppercase; letter-spacing:.08em;
-  opacity:.7; background:var(--paper); color:var(--ink);
+  opacity:.7; background:var(--surface); color:var(--paper);
 }
