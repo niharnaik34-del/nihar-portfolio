@@ -20,6 +20,18 @@ const posters = [
     desc: 'Type as texture — oversized letterforms overwhelm a lone figure at the shoreline.' },
   { file: 'what-is-real.jpg',     title: 'What Is Real',         tag: 'Typography / Experimental',
     desc: 'A pixel-type poster built like a scattered thought, set in raw bitmap type.' },
+
+  { file: 'dodge-color.jpg',      title: 'Dodge Challenger',     tag: '3D / Automotive',
+    desc: 'A photoreal 3D car build — modeled, textured, and lit from scratch.' },
+  { file: 'watch-color.jpg',      title: 'Mechanical Watch',     tag: '3D / Product',
+    desc: 'A studio product render down to the case detailing, dial texture, and an exposed movement.' },
+  { file: 'house-color.jpg',      title: 'Modern House',         tag: '3D / Architecture',
+    desc: 'An architectural night render, built out room by room with interior lighting and materials.' },
+  { file: 'city-color.jpg',       title: 'City Block',           tag: '3D / Environment',
+    desc: 'A full city block environment — modeled architecture, signage, and street furniture.' },
+
+  { video: true, title: 'Show Reel', tag: 'Video Editing',
+    desc: 'A cut of recent edit work — pacing, transitions, and sound design brought together into one reel.' },
 ];
 
 const SPACING = 7;
@@ -138,20 +150,50 @@ function runExperience(){
   };
   const texLoader = new THREE.TextureLoader(manager);
 
-  /* --- build poster meshes --- */
+  /* --- build gallery meshes (images + the closing video screen) --- */
   const meshes = [];
 
   posters.forEach((p, i) => {
+    const z = posterZ(i);
+
+    if (p.video) {
+      /* closing "screen" — muted autoplay preview of the reel */
+      manager.itemStart('reel-video');
+      const video = document.createElement('video');
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.src = 'video/reel.mp4';
+      video.addEventListener('loadeddata', () => manager.itemEnd('reel-video'), { once: true });
+
+      const videoTex = new THREE.VideoTexture(video);
+      videoTex.colorSpace = THREE.SRGBColorSpace;
+
+      const width = 4.6;
+      const height = width * (576 / 1024);
+
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(width, height),
+        new THREE.MeshBasicMaterial({ map: videoTex })
+      );
+      mesh.position.set(0, 0, z);
+      scene.add(mesh);
+
+      meshes.push({ mesh, baseX: 0, baseY: 0, baseRotY: 0, z, index: i, video });
+      return;
+    }
+
     texLoader.load(`images/${p.file}`, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
 
-      const width = 3.4;
-      const height = width * (tex.image.height / tex.image.width);
+      const texAspect = tex.image.width / tex.image.height; // >1 = landscape
+      const width = texAspect > 1 ? 4.3 : 3.4;
+      const height = width / texAspect;
       const side = i % 2 === 0 ? -1 : 1;
       const baseX = side * 2.5 + Math.sin(i * 0.9) * 0.5;
       const baseY = Math.sin(i * 1.15) * 1.1;
       const baseRotY = -side * 0.32;
-      const z = posterZ(i);
 
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(width, height),
@@ -217,9 +259,9 @@ function runExperience(){
     });
 
     meshes.forEach((m) => {
-      const bob = Math.sin(t * 0.5 + m.index * 1.7) * 0.14;
-      const wobbleY = Math.sin(t * 0.3 + m.index) * 0.05;
-      const wobbleZ = Math.sin(t * 0.22 + m.index * 2) * 0.02;
+      const bob = Math.sin(t * 0.5 + m.index * 1.7) * (m.video ? 0.05 : 0.14);
+      const wobbleY = m.video ? 0 : Math.sin(t * 0.3 + m.index) * 0.05;
+      const wobbleZ = m.video ? 0 : Math.sin(t * 0.22 + m.index * 2) * 0.02;
 
       m.mesh.position.y = m.baseY + bob;
       m.mesh.rotation.y = m.baseRotY + wobbleY;
@@ -230,6 +272,14 @@ function runExperience(){
       const targetScale = isActive ? 1.08 : 1.0;
       const s = THREE.MathUtils.lerp(m.mesh.scale.x || 1, targetScale, 0.08);
       m.mesh.scale.setScalar(s);
+
+      if (m.video) {
+        if (dist < SPACING * 1.2 && m.video.paused) {
+          m.video.play().catch(() => {});
+        } else if (dist >= SPACING * 1.2 && !m.video.paused) {
+          m.video.pause();
+        }
+      }
     });
 
     captionEls.forEach((el, i) => {
