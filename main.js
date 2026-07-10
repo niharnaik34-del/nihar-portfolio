@@ -25,11 +25,14 @@ const posters = [
 const SPACING = 7;
 const posterZ = (i) => -10 - i * SPACING;
 const START_Z = 14;
-const END_Z = posterZ(posters.length - 1) - 9;
 
-/* particle shatter finale — triggers as the camera clears the last poster */
-const SHATTER_START = 0.86;
-const SHATTER_END = 0.99;
+/* the 3D car is the final stop — right before the corridor ends
+   and hands off to the flat 3D Modeling / Show Reel sections */
+const CAR_INDEX = posters.length;      // 8
+const TOTAL_STOPS = posters.length + 1; // 9
+const CAR_Z = posterZ(CAR_INDEX);
+const END_Z = CAR_Z - 9;
+
 const ACCENT_HEX = [0xE23A2A, 0x1F2AE0, 0xEFB92A, 0x9CC93A, 0xffffff];
 
 function basePose(i){
@@ -41,6 +44,12 @@ function basePose(i){
     z: posterZ(i),
   };
 }
+
+/* shatter window — starts as the camera reaches the car, finishes
+   right before the corridor hands off to the sections below */
+const progressAtCar = (START_Z - CAR_Z) / (START_Z - END_Z);
+const SHATTER_START = Math.max(progressAtCar - 0.03, 0.05);
+const SHATTER_END = 0.99;
 
 /* ---------------------------------------------------------
    DOM refs
@@ -124,11 +133,11 @@ function runExperience(){
   sizeCanvas();
 
   function sizeSpacer(){
-    spacer.style.height = `${window.innerHeight * (posters.length + 1)}px`;
+    spacer.style.height = `${window.innerHeight * (TOTAL_STOPS + 1)}px`;
   }
   sizeSpacer();
 
-  /* --- captions, built once from data --- */
+  /* --- captions: one per poster, plus one for the car --- */
   posters.forEach((p) => {
     const el = document.createElement('div');
     el.className = 'caption';
@@ -139,6 +148,14 @@ function runExperience(){
     `;
     captionsEl.appendChild(el);
   });
+  const carCaption = document.createElement('div');
+  carCaption.className = 'caption';
+  carCaption.innerHTML = `
+    <span class="caption-tag">3D Modeling</span>
+    <h3>Low-Poly Build</h3>
+    <p>A car built straight in 3D — right before it comes apart into pieces.</p>
+  `;
+  captionsEl.appendChild(carCaption);
   const captionEls = Array.from(captionsEl.children);
 
   /* --- loading manager --- */
@@ -154,7 +171,6 @@ function runExperience(){
 
   /* --- build poster meshes --- */
   const meshes = [];
-  const lastIndex = posters.length - 1;
 
   posters.forEach((p, i) => {
     texLoader.load(`images/${p.file}`, (tex) => {
@@ -166,19 +182,45 @@ function runExperience(){
 
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(width, height),
-        new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+        new THREE.MeshBasicMaterial({ map: tex })
       );
       mesh.position.set(pose.x, pose.y, pose.z);
       mesh.rotation.y = pose.rotY;
       scene.add(mesh);
 
-      meshes.push({ mesh, baseX: pose.x, baseY: pose.y, baseRotY: pose.rotY, z: pose.z, index: i, isLast: i === lastIndex });
+      meshes.push({ mesh, baseX: pose.x, baseY: pose.y, baseRotY: pose.rotY, z: pose.z, index: i });
     });
   });
 
-  /* --- particle shatter finale, centered on the last poster --- */
-  const origin = basePose(lastIndex);
-  const SHATTER_COUNT = 420;
+  /* --- a simple low-poly 3D car, built straight from geometry --- */
+  const carGroup = new THREE.Group();
+  const carParts = [];
+
+  function addCarPart(geo, color, x, y, z, rotX = 0){
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    if (rotX) mesh.rotation.x = rotX;
+    carGroup.add(mesh);
+    carParts.push(mesh);
+    return mesh;
+  }
+
+  addCarPart(new THREE.BoxGeometry(2.6, 0.55, 1.15), 0xE23A2A, 0, 0.35, 0);       // body
+  addCarPart(new THREE.BoxGeometry(1.3, 0.5, 1.02), 0x15130F, -0.1, 0.85, 0);    // cabin
+  const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.28, 18);
+  [[0.95, 0.62], [0.95, -0.62], [-0.95, 0.62], [-0.95, -0.62]].forEach(([x, z]) => {
+    addCarPart(wheelGeo, 0x0a0a0a, x, 0, z, Math.PI / 2);
+  });
+  [[1.28, 0.35, 0.35], [1.28, 0.35, -0.35]].forEach(([x, y, z]) => {
+    addCarPart(new THREE.BoxGeometry(0.08, 0.14, 0.22), 0xEFB92A, x, y, z);       // headlights
+  });
+
+  carGroup.position.set(0, 0, CAR_Z);
+  scene.add(carGroup);
+
+  /* --- particle shatter, bursts from the car once the camera reaches it --- */
+  const SHATTER_COUNT = 460;
   const shatterOffsets = [];
   const shatterPositions = new Float32Array(SHATTER_COUNT * 3);
   const shatterColors = new Float32Array(SHATTER_COUNT * 3);
@@ -192,9 +234,9 @@ function runExperience(){
     const dist = 1.5 + Math.random() * 5.5;
     shatterOffsets.push({ dir, dist, spin: Math.random() * Math.PI * 2 });
 
-    shatterPositions[idx * 3] = origin.x;
-    shatterPositions[idx * 3 + 1] = origin.y;
-    shatterPositions[idx * 3 + 2] = origin.z;
+    shatterPositions[idx * 3] = 0;
+    shatterPositions[idx * 3 + 1] = 0;
+    shatterPositions[idx * 3 + 2] = CAR_Z;
 
     const c = new THREE.Color(ACCENT_HEX[idx % ACCENT_HEX.length]);
     shatterColors[idx * 3] = c.r;
@@ -262,9 +304,6 @@ function runExperience(){
       if (dist < bestDist) { bestDist = dist; activeIndex = m.index; }
     });
 
-    /* shatter amount — 0 until near the very end of the corridor */
-    const shatterAmount = THREE.MathUtils.smoothstep(scrollProgress, SHATTER_START, SHATTER_END);
-
     meshes.forEach((m) => {
       const bob = Math.sin(t * 0.5 + m.index * 1.7) * 0.14;
       const wobbleY = Math.sin(t * 0.3 + m.index) * 0.05;
@@ -277,24 +316,29 @@ function runExperience(){
       const dist = Math.abs(camera.position.z - m.z);
       const isActive = m.index === activeIndex && dist < SPACING * 0.62;
       const targetScale = isActive ? 1.08 : 1.0;
-      let s = THREE.MathUtils.lerp(m.mesh.scale.x || 1, targetScale, 0.08);
-
-      if (m.isLast) {
-        s *= 1 - shatterAmount * 0.4;
-        m.mesh.material.opacity = 1 - shatterAmount;
-      }
+      const s = THREE.MathUtils.lerp(m.mesh.scale.x || 1, targetScale, 0.08);
       m.mesh.scale.setScalar(s);
     });
 
-    /* animate the shatter particles outward from the last poster */
+    /* shatter amount — 0 until the camera reaches the car */
+    const shatterAmount = THREE.MathUtils.smoothstep(scrollProgress, SHATTER_START, SHATTER_END);
+
+    /* car: slow showcase spin + bob, then shrink/fade as it shatters */
+    carGroup.position.y = Math.sin(t * 0.6) * 0.12;
+    carGroup.rotation.y = t * 0.35;
+    const carShrink = 1 - shatterAmount * 0.55;
+    carGroup.scale.setScalar(carShrink);
+    carParts.forEach((part) => { part.material.opacity = 1 - shatterAmount; });
+
+    /* shatter particles burst outward from the car's position */
     if (shatterAmount > 0.001) {
       const posAttr = shatterGeo.attributes.position;
       for (let idx = 0; idx < SHATTER_COUNT; idx++) {
         const { dir, dist, spin } = shatterOffsets[idx];
         const travel = shatterAmount * dist;
-        posAttr.array[idx * 3]     = origin.x + dir.x * travel;
-        posAttr.array[idx * 3 + 1] = origin.y + dir.y * travel + Math.sin(t * 2 + spin) * 0.06 * shatterAmount;
-        posAttr.array[idx * 3 + 2] = origin.z + dir.z * travel;
+        posAttr.array[idx * 3]     = dir.x * travel;
+        posAttr.array[idx * 3 + 1] = dir.y * travel + Math.sin(t * 2 + spin) * 0.06 * shatterAmount;
+        posAttr.array[idx * 3 + 2] = CAR_Z + dir.z * travel;
       }
       posAttr.needsUpdate = true;
     }
